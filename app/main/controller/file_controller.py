@@ -8,11 +8,11 @@ File = Namespace(
     description="upload & download file"
 )
 
-todo_fields = File.model('Todo', {  # Model 객체 생성
+file_fields = File.model('Todo', {  # Model 객체 생성
     'data': fields.String(description='a Todo', required=True, example="what to do")
 })
 
-todo_fields_with_id = File.inherit('Todo With ID', todo_fields, {
+file_fields_with_id = File.inherit('Todo With ID', file_fields, {
     'todo_id': fields.Integer(description='a Todo ID')
 })
 
