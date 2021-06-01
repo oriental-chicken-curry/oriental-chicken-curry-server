@@ -14,7 +14,7 @@ api = Api(
     license="MIT"
 )
 
-api.add_namespace(Todo, '/todos')
+api.add_namespace(Todo, '/todos')# 튜토리얼
 api.add_namespace(File, '/file')
 
 if __name__ == "__main__":

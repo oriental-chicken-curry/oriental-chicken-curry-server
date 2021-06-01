@@ -1,9 +1,8 @@
 from flask_restx import Resource, Api, Namespace, fields
 
-
 count = 0
 Todo = Namespace(
-    name = 'Todo',
+    name='Todo',
     description="test"
 )
 
@@ -15,8 +14,12 @@ todo_fields_with_id = Todo.inherit('Todo With ID', todo_fields, {
     'todo_id': fields.Integer(description='a Todo ID')
 })
 
+
 @Todo.route('')
 class TodoPost(Resource):
+    def get(self):
+        return {"hello": "get world"}
+
     def post(self):
         global count
 
