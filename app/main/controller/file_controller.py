@@ -1,6 +1,9 @@
 import numpy
 import flask
 import cv2
+from PIL import Image, ImageOps
+from app.main.service.inference import *
+
 from flask_restx import Resource, Api, Namespace, fields
 from werkzeug.datastructures import FileStorage
 
@@ -26,8 +29,6 @@ upload_parser.add_argument('file', location='files',
 @File.expect(upload_parser)
 class uploadFile(Resource):
     def post(self):
-        
-
         args = upload_parser.parse_args()
         uploaded_file = args['file']  # This is FileStorage instance
         uploaded_file = uploaded_file.read()
@@ -35,5 +36,6 @@ class uploadFile(Resource):
         img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
         print("파일 타입 : ", type(img))
         print("이미지 shape : ",img.shape)
-        # Todo 모델 서빙 로직 추가
-        return "success"
+        res = main(img) # 모델 서빙 로직
+        print(res)
+        return res
