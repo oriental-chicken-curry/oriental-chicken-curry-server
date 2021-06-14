@@ -1,5 +1,4 @@
-import random
-
+import cv2
 import numpy as np
 
 from app.main.service.utils.checkpoint import load_checkpoint
@@ -11,8 +10,12 @@ from app.main.service.utils.log import *
 
 from PIL import Image, ImageOps
 
+import time
+
+
 class Model():
-    checkpoint_file = "/home/ubuntu/checkpoints/0070.pth"
+    # checkpoint_file = "/home/ubuntu/checkpoints/0070.pth"
+    checkpoint_file = "/Users/heesup/Desktop/0070.pth"
     checkpoint = load_checkpoint(checkpoint_file, cuda=torch.cuda.is_available())
     options = Flags(checkpoint["configs"]).get()
 
@@ -69,11 +72,11 @@ def id_to_string(tokens, token_to_id, id_to_token, do_eval=0):
     return result
 
 
-def image_processing(image, test_transformed, device):
+def image_processing(image_info, test_transformed, device):
     """ inference를 위한 이미지 처리 작업
 
     Args:
-        image(np.array) : 요청받은 이미지
+        image_info(np.array) : 요청받은 이미지
         test_transformed : image augmentation
         device : 사용 디바이스
 
@@ -81,10 +84,10 @@ def image_processing(image, test_transformed, device):
         torch.tensor : 처리 된 이미지
     """
 
-    input_images = []
+    # 이미지 가져오기
+    image = cv2.cvtColor(image_info,cv2.COLOR_BGR2GRAY)
 
-    image = np.array(image)
-    image = image.astype(np.uint8)
+    input_images = []
 
     transformed = test_transformed(image=image)
     image = transformed["image"]
@@ -108,12 +111,14 @@ def inference(image_info):
     Returns:
         str : 이미지에 대한 latex 문자열
     """
+
     device = get_device()
 
     model_checkpoint = Model.checkpoint["model"]
 
     # Augmentation
-    _, _, test_transformed = get_transforms(Model.options.augmentation, Model.options.input_size.height, Model.options.input_size.width)
+    _, _, test_transformed = get_transforms(Model.options.augmentation, Model.options.input_size.height,
+                                            Model.options.input_size.width)
 
     # token id dictionary
     token_to_id = Model.checkpoint["token_to_id"]
@@ -126,21 +131,14 @@ def inference(image_info):
 
     dummy_sentence = "\sin " * 230  # set maximum inference sequence
 
-    # 이미지 가져오기
-    image = Image.fromarray(image_info)
-    image = image.convert("L")
-
-    # crop
-    bounding_box = ImageOps.invert(image).getbbox()
-    image = image.crop(bounding_box)
-
-    input_images = image_processing(image,test_transformed,device)
+    input_images = image_processing(image_info, test_transformed, device)
 
     expected = [np.array([token_to_id[START]] + encode_truth(dummy_sentence, token_to_id) + [token_to_id[END]]),
                 np.array([token_to_id[START]] + encode_truth(dummy_sentence, token_to_id) + [token_to_id[END]])]
     expected = torch.Tensor(expected).to(device)
 
-    output = model(input_images, expected, False, 0.0)
+    with torch.no_grad():
+        output = model(input_images, expected, False, 0.0)
 
     decoded_values = output.transpose(1, 2)
     _, sequence = torch.topk(decoded_values, 1, dim=1)
