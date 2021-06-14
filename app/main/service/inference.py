@@ -11,6 +11,11 @@ from app.main.service.utils.log import *
 
 from PIL import Image, ImageOps
 
+class Model():
+    checkpoint_file = "/home/ubuntu/checkpoints/0070.pth"
+    checkpoint = load_checkpoint(checkpoint_file, cuda=torch.cuda.is_available())
+    options = Flags(checkpoint["configs"]).get()
+
 
 def encode_truth(truth, token_to_id):
     """ ground truth의 latex문구를 파싱하여 id로 변환
@@ -103,28 +108,19 @@ def inference(image_info):
     Returns:
         str : 이미지에 대한 latex 문자열
     """
-    checkpoint_file = "/Users/heesup/Applications/boostCamp_Pstage/stage4_OCR/checkpoints/0068.pth"
-
-    is_cuda = torch.cuda.is_available()
-    checkpoint = load_checkpoint(checkpoint_file, cuda=is_cuda)
-    options = Flags(checkpoint["configs"]).get()
-    torch.manual_seed(options.seed)
-    random.seed(options.seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
     device = get_device()
 
-    model_checkpoint = checkpoint["model"]
+    model_checkpoint = Model.checkpoint["model"]
 
     # Augmentation
-    _, _, test_transformed = get_transforms(options.augmentation, options.input_size.height, options.input_size.width)
+    _, _, test_transformed = get_transforms(Model.options.augmentation, Model.options.input_size.height, Model.options.input_size.width)
 
     # token id dictionary
-    token_to_id = checkpoint["token_to_id"]
-    id_to_token = checkpoint["id_to_token"]
+    token_to_id = Model.checkpoint["token_to_id"]
+    id_to_token = Model.checkpoint["id_to_token"]
 
-    model = SATRN(options, id_to_token, token_to_id, model_checkpoint).to(device)
+    model = SATRN(Model.options, id_to_token, token_to_id, model_checkpoint).to(device)
+
     model.eval()
     results = []
 
