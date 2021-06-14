@@ -12,6 +12,8 @@ from app.main.service.utils.log import *
 
 import time
 
+from PIL import Image
+
 
 class Model():
     # checkpoint_file = "/home/ubuntu/checkpoints/0070.pth"
@@ -85,7 +87,11 @@ def image_processing(image_info, test_transformed, device):
     """
 
     # 이미지 가져오기
-    image = cv2.cvtColor(image_info, cv2.COLOR_BGR2GRAY)
+    image = Image.fromarray(image_info)
+    image = image.convert("L")
+
+    image = np.array(image)
+    image = image.astype(np.uint8)
 
     input_images = []
 
@@ -126,12 +132,6 @@ def inference(image_info):
     id_to_token = Model.checkpoint["id_to_token"]
 
     model = SATRN(Model.options, id_to_token, token_to_id, model_checkpoint).to(device)
-    conv_list = []
-    backbone = model.encoder.shallow_cnn.net
-
-    # for p in model.parameters():
-    #     if isinstance(p, nn.Conv2d):
-    #         prune.ln_structured(p, name='weight', amount=0.3, n=2, dim=1)
 
     model = torch.quantization.quantize_dynamic(model, {nn.Linear}, dtype=torch.qint8)
 
@@ -161,6 +161,6 @@ def inference(image_info):
         res.append(predicted)
 
     get_result(res[0])
-    print("time :", time.time() - start)
+    # print("time :", time.time() - start)
 
     return res[0]
