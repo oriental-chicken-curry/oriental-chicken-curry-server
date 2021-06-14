@@ -726,7 +726,16 @@ class TransformerDecoder(nn.Module):
         else:
             out = []
             num_steps = batch_max_length - 1
+            # print("src", src)
+            # print("src shape", src.shape)
+            # print()
+            # print(src.size(0))
+            # print(type(src.size(0)))
+            # print(torch.LongTensor(src.size(0)))
+            # print(self.st_id)
+            # print(torch.LongTensor(src.size(0)).fill_(self.st_id))
             target = torch.LongTensor(src.size(0)).fill_(self.st_id).to(device)  # [START] token
+            # target = torch.LongTensor(src.size(0).item()).fill_(self.st_id).to(device)
             features = [None] * self.layer_num
 
             for t in range(num_steps):
@@ -786,7 +795,7 @@ class SATRN(nn.Module):
         if checkpoint:
             self.load_state_dict(checkpoint)
 
-    def forward(self, input, expected, is_train, teacher_forcing_ratio):
+    def forward(self, input, expected, is_train= False, teacher_forcing_ratio = 0.0):
         enc_result = self.encoder(input)
         dec_result = self.decoder(
             enc_result,

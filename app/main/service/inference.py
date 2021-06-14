@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import torch.nn.utils.prune as prune
+import torch.nn as nn
 
 from app.main.service.utils.checkpoint import load_checkpoint
 from app.main.service.data.special_tokens import START, END
@@ -7,8 +9,6 @@ from app.main.service.utils.flags import Flags
 from app.main.service.networks.SATRN import SATRN
 from app.main.service.data.augmentation import get_transforms
 from app.main.service.utils.log import *
-
-from PIL import Image, ImageOps
 
 import time
 
@@ -85,7 +85,7 @@ def image_processing(image_info, test_transformed, device):
     """
 
     # 이미지 가져오기
-    image = cv2.cvtColor(image_info,cv2.COLOR_BGR2GRAY)
+    image = cv2.cvtColor(image_info, cv2.COLOR_BGR2GRAY)
 
     input_images = []
 
@@ -111,6 +111,7 @@ def inference(image_info):
     Returns:
         str : 이미지에 대한 latex 문자열
     """
+    start = time.time()
 
     device = get_device()
 
@@ -125,6 +126,14 @@ def inference(image_info):
     id_to_token = Model.checkpoint["id_to_token"]
 
     model = SATRN(Model.options, id_to_token, token_to_id, model_checkpoint).to(device)
+    conv_list = []
+    backbone = model.encoder.shallow_cnn.net
+
+    # for p in model.parameters():
+    #     if isinstance(p, nn.Conv2d):
+    #         prune.ln_structured(p, name='weight', amount=0.3, n=2, dim=1)
+
+    model = torch.quantization.quantize_dynamic(model, {nn.Linear}, dtype=torch.qint8)
 
     model.eval()
     results = []
@@ -152,5 +161,6 @@ def inference(image_info):
         res.append(predicted)
 
     get_result(res[0])
+    print("time :", time.time() - start)
 
     return res[0]
