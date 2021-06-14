@@ -4,7 +4,7 @@ import cv2
 from PIL import Image, ImageOps
 from app.main.service.inference import *
 
-from flask_restx import Resource, Api, Namespace, fields
+from flask_restx import Resource, Namespace, fields
 from werkzeug.datastructures import FileStorage
 
 File = Namespace(

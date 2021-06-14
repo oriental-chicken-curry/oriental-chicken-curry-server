@@ -384,7 +384,7 @@ def dataset_loader(options, train_transformed, valid_transformed):
 
     # Read data
     train_data, valid_data = [], []
-    train_dataset = ["/Users/heesup/Applications/boostCamp_Pstage/stage4_OCR/train_dataset/gt.txt"]
+    train_dataset = ["C:/Users/KHJ/Desktop/train_dataset/gt.txt"]
 
     if options.data.random_split:
         for i, path in enumerate(train_dataset):
@@ -406,7 +406,7 @@ def dataset_loader(options, train_transformed, valid_transformed):
 
 
     # token path 설정
-    token_paths = ["/Users/heesup/Applications/boostCamp_Pstage/stage4_OCR/train_dataset/tokens.txt"]
+    token_paths = ["C:/Users/KHJ/Desktop/train_dataset/tokens.txt"]
 
     # Load data
     train_dataset = LoadDataset(

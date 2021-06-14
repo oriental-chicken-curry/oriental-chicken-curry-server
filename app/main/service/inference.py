@@ -1,6 +1,10 @@
 import torch
+import cv2
+import numpy as np
 import os
+import torch.nn.functional as F
 
+from pprint import pprint
 from app.main.service.utils.checkpoint import load_checkpoint
 
 from app.main.service.data.dataset import LoadEvalDataset, collate_eval_batch, START, PAD, END
@@ -66,8 +70,7 @@ def id_to_string(tokens, token_to_id,id_to_token, do_eval=0):
 
 
 def main(image_info):
-    checkpoint_file = "/Users/heesup/Applications/boostCamp_Pstage/stage4_OCR/oriental-chicken-curry-server/" \
-                      "app/main/service/checkpoints/0038.pth"
+    checkpoint_file = "C:/Users/KHJ/Desktop/checkpoints/0070.pth"
 
     # eval_dir = os.environ.get('SM_CHANNEL_EVAL', '/Users/heesup/Applications/boostCamp_Pstage/stage4_OCR/')
 
@@ -123,18 +126,31 @@ def main(image_info):
     # numpy 변환
     image = np.array(image)
     image = image.astype(np.uint8)
+    image_270 = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    image_90 = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)    
 
     transformed = test_transformed(image=image)
     image = transformed["image"]
     image = image.float()
 
+    transformed_270 = test_transformed(image=image_270)
+    image_270 = transformed_270["image"]
+    image_270 = image_270.float()
+
+    transformed_90 = test_transformed(image=image_90)
+    image_90 = transformed_90["image"]
+    image_90 = image_90.float()
+
     input_images.append(image.numpy())
-    input_images.append(image.numpy())
+    # input_images.append(image.numpy())
+    input_images.append(image_270.numpy())
+    input_images.append(image_90.numpy())
 
     input_images = np.array(input_images)
-    input_images = torch.Tensor(input_images)
+    input_images = torch.tensor(input_images)
 
     input_images = input_images.to(device)
+    
 
     expected = [np.array([token_to_id[START]] + encode_truth(dummy_sentence, token_to_id) + [token_to_id[END]]),
                 np.array([token_to_id[START]] + encode_truth(dummy_sentence, token_to_id) + [token_to_id[END]])]
@@ -147,12 +163,24 @@ def main(image_info):
 
     output = model(input_images, expected, False, 0.0)
 
-    file_paths = ["test1.jpg", "test1.jpg"]
+    file_paths = ["test1.jpg", "test1.jpg", "test1.jpg"]
 
-    decoded_values = output.transpose(1, 2)
-    _, sequence = torch.topk(decoded_values, 1, dim=1)
+    decoded_values = output.transpose(1, 2)#.mean(0).unsqueeze(0)
+
+    x = F.softmax(decoded_values, dim=1)
+    x, _ = torch.max(x, dim=-1)
+
+    _, sequence = torch.topk(decoded_values, 1, dim=1)    
     sequence = sequence.squeeze(1)
-    sequence_str = id_to_string(sequence, token_to_id, id_to_token, do_eval=1)
+    # pprint(sequence)
+    row, col = torch.nonzero(sequence==1, as_tuple=True)    
+   
+    # print(col[row==0][0].item(), col[row==1][0].item(), col[row==2][0].item())
+    index = np.argmax([x[0][:col[row==0][0].item()].mean().item(), \
+                       x[1][:col[row==1][0].item()].mean().item(), \
+                       x[2][:col[row==2][0].item()].mean().item()])
+
+    sequence_str = id_to_string(sequence[index].unsqueeze(0), token_to_id, id_to_token, do_eval=1)
     for path, predicted in zip(file_paths, sequence_str):
         results.append((path, predicted))
 
