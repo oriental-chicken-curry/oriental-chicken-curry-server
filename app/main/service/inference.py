@@ -1,14 +1,13 @@
-import torch
-import os
-
-from app.main.service.utils.checkpoint import load_checkpoint
-
-from app.main.service.data.dataset import LoadEvalDataset, collate_eval_batch, START, PAD, END
-from app.main.service.utils.flags import Flags
-from app.main.service.networks.SATRN import SATRN
 import random
 
-from app.main.service.log import *
+import numpy as np
+
+from app.main.service.utils.checkpoint import load_checkpoint
+from app.main.service.data.special_tokens import START, END
+from app.main.service.utils.flags import Flags
+from app.main.service.networks.SATRN import SATRN
+from app.main.service.data.augmentation import get_transforms
+from app.main.service.utils.log import *
 
 from PIL import Image, ImageOps
 
@@ -32,7 +31,7 @@ def encode_truth(truth, token_to_id):
     return truth_tokens
 
 
-def id_to_string(tokens, token_to_id,id_to_token, do_eval=0):
+def id_to_string(tokens, token_to_id, id_to_token, do_eval=0):
     """token id 를 문자열로 변환하는 로직
 
     Args:
@@ -43,7 +42,7 @@ def id_to_string(tokens, token_to_id,id_to_token, do_eval=0):
     result = []
     if do_eval:
         eos_id = token_to_id["<EOS>"]
-        special_ids = [token_to_id["<PAD>"], token_to_id["<SOS>"],token_to_id["<EOS>"]]
+        special_ids = [token_to_id["<PAD>"], token_to_id["<SOS>"], token_to_id["<EOS>"]]
 
     for example in tokens:
         string = ""
@@ -65,62 +64,20 @@ def id_to_string(tokens, token_to_id,id_to_token, do_eval=0):
     return result
 
 
-def main(image_info):
-    checkpoint_file = "/Users/heesup/Applications/boostCamp_Pstage/stage4_OCR/oriental-chicken-curry-server/" \
-                      "app/main/service/checkpoints/0038.pth"
+def image_processing(image, test_transformed, device):
+    """ inference를 위한 이미지 처리 작업
 
-    # eval_dir = os.environ.get('SM_CHANNEL_EVAL', '/Users/heesup/Applications/boostCamp_Pstage/stage4_OCR/')
+    Args:
+        image(np.array) : 요청받은 이미지
+        test_transformed : image augmentation
+        device : 사용 디바이스
 
-    output_dir = os.environ.get('SM_OUTPUT_DATA_DIR', 'submit')
-
-    is_cuda = torch.cuda.is_available()
-    checkpoint = load_checkpoint(checkpoint_file, cuda=is_cuda)
-    options = Flags(checkpoint["configs"]).get()
-    torch.manual_seed(options.seed)
-    random.seed(options.seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-    print("image_info", image_info.shape)
-
-    hardware = "cuda" if is_cuda else "cpu"
-    device = torch.device(hardware)
-    print("--------------------------------")
-    print("Running {} on device {}\n".format(options.network, device))
-
-    model_checkpoint = checkpoint["model"]
-    if model_checkpoint:
-        print(
-            "[+] Checkpoint\n",
-            "Resuming from epoch : {}\n".format(checkpoint["epoch"]),
-        )
-    print(options.input_size.height)
-
-    # Augmentation
-    _, _, _, _, test_transformed = get_dataset(options)
-
-    # token id dictionary
-    token_to_id = checkpoint["token_to_id"]
-    id_to_token = checkpoint["id_to_token"]
-
-    model = SATRN(options, id_to_token, token_to_id, model_checkpoint).to(device)
-    model.eval()
-    results = []
+    Returns:
+        torch.tensor : 처리 된 이미지
+    """
 
     input_images = []
 
-    dummy_sentence = "\sin " * 230  # set maximum inference sequence
-
-    # 이미지 가져오기
-    # image = Image.open("/Users/heesup/Applications/boostCamp_Pstage/stage4_OCR/eval_dataset/images/train_00000.jpg")
-    image = Image.fromarray(image_info)
-    image = image.convert("L")
-
-    # crop
-    bounding_box = ImageOps.invert(image).getbbox()
-    image = image.crop(bounding_box)
-
-    # numpy 변환
     image = np.array(image)
     image = image.astype(np.uint8)
 
@@ -132,37 +89,74 @@ def main(image_info):
     input_images.append(image.numpy())
 
     input_images = np.array(input_images)
-    input_images = torch.Tensor(input_images)
+    input_images = torch.Tensor(input_images).to(device)
 
-    input_images = input_images.to(device)
+    return input_images
+
+
+def inference(image_info):
+    """ 요청받은 이미지 추론 작업
+
+    Args:
+        image_info(np.array) : 요청받은 이미지 정보
+
+    Returns:
+        str : 이미지에 대한 latex 문자열
+    """
+    checkpoint_file = "/Users/heesup/Applications/boostCamp_Pstage/stage4_OCR/checkpoints/0068.pth"
+
+    is_cuda = torch.cuda.is_available()
+    checkpoint = load_checkpoint(checkpoint_file, cuda=is_cuda)
+    options = Flags(checkpoint["configs"]).get()
+    torch.manual_seed(options.seed)
+    random.seed(options.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    device = get_device()
+
+    model_checkpoint = checkpoint["model"]
+
+    # Augmentation
+    _, _, test_transformed = get_transforms(options.augmentation, options.input_size.height, options.input_size.width)
+
+    # token id dictionary
+    token_to_id = checkpoint["token_to_id"]
+    id_to_token = checkpoint["id_to_token"]
+
+    model = SATRN(options, id_to_token, token_to_id, model_checkpoint).to(device)
+    model.eval()
+    results = []
+
+    dummy_sentence = "\sin " * 230  # set maximum inference sequence
+
+    # 이미지 가져오기
+    image = Image.fromarray(image_info)
+    image = image.convert("L")
+
+    # crop
+    bounding_box = ImageOps.invert(image).getbbox()
+    image = image.crop(bounding_box)
+
+    input_images = image_processing(image,test_transformed,device)
 
     expected = [np.array([token_to_id[START]] + encode_truth(dummy_sentence, token_to_id) + [token_to_id[END]]),
                 np.array([token_to_id[START]] + encode_truth(dummy_sentence, token_to_id) + [token_to_id[END]])]
-
-    expected = torch.Tensor(expected)
-    expected = expected.to(device)
-
-    print("input image shape", input_images.shape)
-    print("expected shape", expected.shape)
+    expected = torch.Tensor(expected).to(device)
 
     output = model(input_images, expected, False, 0.0)
-
-    file_paths = ["test1.jpg", "test1.jpg"]
 
     decoded_values = output.transpose(1, 2)
     _, sequence = torch.topk(decoded_values, 1, dim=1)
     sequence = sequence.squeeze(1)
     sequence_str = id_to_string(sequence, token_to_id, id_to_token, do_eval=1)
-    for path, predicted in zip(file_paths, sequence_str):
-        results.append((path, predicted))
+    for predicted in sequence_str:
+        results.append(predicted)
 
     res = []
-    os.makedirs(output_dir, exist_ok=True)
-    for path, predicted in results:
+    for predicted in results:
         res.append(predicted)
 
+    get_result(res[0])
+
     return res[0]
-
-
-if __name__ == "__main__":
-    main()

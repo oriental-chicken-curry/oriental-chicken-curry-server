@@ -1,11 +1,11 @@
-import torch
-import torch.nn as nn
-
 import math
 import random
 import timm
 
-from app.main.service.data.dataset import START, PAD
+import torch
+import torch.nn as nn
+
+from app.main.service.data.special_tokens import START, PAD
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -108,8 +108,6 @@ class HrnetBackbone300(nn.Module):
 
         return o
 
-
-# =================================================================================
 class BottleneckBlock(nn.Module):
     """
     Dense Bottleneck Block
@@ -202,7 +200,6 @@ class DenseBlock(nn.Module):
         return self.block(x)
 
 
-# deepCNN300
 class DeepCNN300(nn.Module):
     """
     This is specialized to the math formula recognition task
@@ -266,8 +263,6 @@ class DeepCNN300(nn.Module):
         out_A = self.trans2_conv(out_before_trans2)
         return out_A  # 128 x (16x16)
 
-
-# =================================================================================
 
 class ScaledDotProductAttention(nn.Module):
     def __init__(self, temperature, dropout=0.1):

@@ -1,4 +1,3 @@
-import os
 import torch
 
 use_cuda = torch.cuda.is_available()
@@ -22,23 +21,12 @@ default_checkpoint = {
 }
 
 
-def save_checkpoint(checkpoint, dir="./checkpoints", prefix=""):
-    """모델 저장 함수
-    """
-    # Padded to 4 digits because of lexical sorting of numbers.
-    # e.g. 0009.pth
-    filename = "{num:0>4}.pth".format(num=checkpoint["epoch"])
-    if not os.path.exists(os.path.join(prefix, dir)):
-        os.makedirs(os.path.join(prefix, dir))
-    torch.save(checkpoint, os.path.join(prefix, dir, filename))
-
-
 def load_checkpoint(path, cuda=use_cuda):
     """ 저장되어 있는 모델을 반환
 
     Args:
         path(str) : 모델 저장 경로
-        use_cuda(boolean) : cuda사용 여부
+        cuda(boolean) : cuda사용 여부
     """
     if cuda:
         return torch.load(path)

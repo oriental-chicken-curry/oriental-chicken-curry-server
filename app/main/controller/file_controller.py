@@ -1,41 +1,32 @@
-import numpy
-import flask
 import cv2
-from PIL import Image, ImageOps
-from app.main.service.inference import *
+import numpy
 
-from flask_restx import Resource, Api, Namespace, fields
+from flask_restx import Resource, Namespace
 from werkzeug.datastructures import FileStorage
 
+from app.main.service.inference import *
+
 File = Namespace(
-    name = 'File',
+    name='File',
     description="upload & download file"
 )
-
-file_fields = File.model('Todo', {  # Model 객체 생성
-    'data': fields.String(description='a Todo', required=True, example="what to do")
-})
-
-file_fields_with_id = File.inherit('Todo With ID', file_fields, {
-    'todo_id': fields.Integer(description='a Todo ID')
-})
-
 
 upload_parser = File.parser()
 upload_parser.add_argument('file', location='files',
                            type=FileStorage, required=True)
 
+
 @File.route('')
 @File.expect(upload_parser)
 class uploadFile(Resource):
+    """ 파일 컨트롤러 정의
+    """
     def post(self):
         args = upload_parser.parse_args()
         uploaded_file = args['file']  # This is FileStorage instance
         uploaded_file = uploaded_file.read()
         npimg = numpy.fromstring(uploaded_file, numpy.uint8)
         img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
-        print("파일 타입 : ", type(img))
-        print("이미지 shape : ",img.shape)
-        res = main(img) # 모델 서빙 로직
-        print(res)
+
+        res = inference(img)
         return res
