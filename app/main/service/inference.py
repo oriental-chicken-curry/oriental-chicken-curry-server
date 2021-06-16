@@ -16,8 +16,8 @@ from PIL import Image
 
 
 class Model():
-    # checkpoint_file = "/home/ubuntu/checkpoints/0070.pth"
-    checkpoint_file = "/Users/heesup/Desktop/0070.pth"
+    checkpoint_file = "/home/ubuntu/checkpoints/0070.pth"
+    # checkpoint_file = "/Users/heesup/Desktop/0070.pth"
     checkpoint = load_checkpoint(checkpoint_file, cuda=torch.cuda.is_available())
     options = Flags(checkpoint["configs"]).get()
 
@@ -133,7 +133,7 @@ def inference(image_info):
 
     model = SATRN(Model.options, id_to_token, token_to_id, model_checkpoint).to(device)
 
-    model = torch.quantization.quantize_dynamic(model, {nn.Linear}, dtype=torch.qint8)
+    # model = torch.quantization.quantize_dynamic(model, {nn.Linear}, dtype=torch.qint8)
 
     model.eval()
     results = []
